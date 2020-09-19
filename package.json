@@ -1,21 +1,21 @@
 {
 	"name": "cxx-compiler-explorer",
-	"author": "Andreas Hollandt",
+	"author": "Karthik Karyamapudi",
 	"displayName": "C++ Compiler explorer",
 	"description": "Show compiler-generated assembly code",
 	"version": "0.3.3",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/Trass3r/cxx-compiler-explorer"
+		"url": "https://github.com/KK1423/cxx-compiler-explorer"
 	},
 	"bugs": {
-		"url": "https://github.com/Trass3r/cxx-compiler-explorer/issues"
+		"url": "https://github.com/KK1423/cxx-compiler-explorer/issues"
 	},
 	"extensionKind": [
 		"workspace"
 	],
 	"license": "MIT",
-	"publisher": "trass3r",
+	"publisher": "kk1423",
 	"engines": {
 		"vscode": "^1.23.0"
 	},
