@@ -44,10 +44,19 @@ class CompileCommand {
 
 
 	getDisassembleCommand(outFile: string) {
-		// remove -o part
-		let fixedCmd = this._command.replace(/[\s]-o\s[^"\s]+/, '');
-		// now add necessary options to generate clean assembly
-		return fixedCmd + ' -g1 -S -masm=intel -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-dwarf2-cfi-asm -o "' + outFile + '"';
+		let args = [this.command,
+			'-g1',
+			'-S',
+			'-masm=intel',
+			'-fno-unwind-tables',
+			'-fno-asynchronous-unwind-tables',
+			'-fno-dwarf2-cfi-asm',
+		...this.args,
+			'-o',
+		'"' + outFile + '"'
+		];
+
+		return this.getCommand(args);
 	}
 
 	getPreprocessCommand(outFile: string) {
@@ -117,10 +126,10 @@ export class CompileCommands {
 	private static asmUriMap = new Map<string, Uri>();
 	private static llvmUriMap = new Map<string, Uri>();
 	private static preprocessUriMap = new Map<string, Uri>();
-	private static compileTimestamps = new Map<string, Date>();
+	private static initTime: Date;
 	private static outDir = resolvePath(
 		workspace.getConfiguration("compilerexplorer").get<string>("outDir") +
-			"/"
+		"/"
 	);
 	private static extraArgs: string[] = [];
 
@@ -133,6 +142,7 @@ export class CompileCommands {
 	}
 
 	static compile(uri: Uri) {
+		this.update();
 		const compileInfo = this.getCompileInfo(uri);
 
 		if (compileInfo !== undefined) {
@@ -147,20 +157,24 @@ export class CompileCommands {
 	}
 
 	static getSrcUri(uri: Uri) {
+		this.update();
 		const compileInfo = this.compileCommands.get(uri.path);
 
 		return compileInfo ? compileInfo.srcUri : undefined;
 	}
 
 	static getAsmUri(uri: Uri) {
+		this.update();
 		return this.asmUriMap.get(uri.path);
 	}
 
 	static getLLVMUri(uri: Uri) {
+		this.update();
 		return this.llvmUriMap.get(uri.path);
 	}
 
 	static getPreprocessUri(uri: Uri) {
+		this.update();
 		return this.preprocessUriMap.get(uri.path);
 	}
 
@@ -179,10 +193,29 @@ export class CompileCommands {
 			this.errorChannel = errorChannel;
 			this.createOutputDirectory();
 
+			this.initTime = new Date();
 			return true;
 		}
 
 		return false;
+	}
+
+	static getCompileCommandsPath() {
+		const compileCommandsPath =
+			workspace
+				.getConfiguration("compilerexplorer", null)
+				.get<string>("compilationDirectory") + "/compile_commands.json";
+
+		return compileCommandsPath
+			? resolvePath(compileCommandsPath)
+			: resolvePath("${workspaceFolder}/compile_commands.json");
+	}
+
+	private static update() {
+		if (this.fileNewer(this.getCompileCommandsPath(), this.initTime)) {
+			this.compileCommands.clear();
+			this.init(this.errorChannel);
+		}
 	}
 
 	private static processCompileCommand(compileCommand: CompileCommand) {
@@ -231,7 +264,6 @@ export class CompileCommands {
 		const command = compileInfo.command + ' ' + this.getExtraCompileArgs();
 		this.errorChannel.clear();
 		this.errorChannel.appendLine(command);
-		this.errorChannel.show();
 		const result = child_process.spawnSync(command, {
 			cwd: compileInfo.compilationDirectory,
 			encoding: "utf8",
@@ -253,8 +285,8 @@ export class CompileCommands {
 			const error = result.error
 				? result.error.message
 				: result.output
-				? result.output.join("\n")
-				: "";
+					? result.output.join("\n")
+					: "";
 
 			window.showErrorMessage(
 				"Cannot compile " + compileInfo.srcUri.path
@@ -262,32 +294,38 @@ export class CompileCommands {
 
 			this.errorChannel.appendLine(error);
 			this.errorChannel.appendLine("  failed with error code " +
-					(result.status ? result.status.toString() : "null")
+				(result.status ? result.status.toString() : "null")
 			);
 
 			return false;
 		}
 
-		this.updateCompileInfo(compileInfo);
+		compileInfo.extraArgs = this.extraArgs;
 
 		return true;
 	}
 
-	private static needCompilation(compileInfo: CompileInfo) {
-		const srcUri = compileInfo.srcUri;
-		const compileTimestamp = this.compileTimestamps.get(srcUri.path);
-		const stat = fs.statSync(srcUri.path);
+	private static fileNewer(source: string, target: string | Date | undefined) {
+		if (!target) {
+			return true;
+		}
 
-		return (
-			compileInfo.extraArgsChanged(this.extraArgs) ||
-			!compileTimestamp ||
-			stat.mtime > compileTimestamp
-		);
+		let srcStat = fs.statSync(source);
+
+		if (target instanceof Date) {
+			return srcStat.mtime > target;
+		}
+
+		let tgtStat = fs.existsSync(target) && fs.statSync(target);
+		return !tgtStat || srcStat.mtime > tgtStat.mtime;
 	}
 
-	private static updateCompileInfo(compileInfo: CompileInfo) {
-		this.compileTimestamps.set(compileInfo.srcUri.path, new Date());
-		compileInfo.extraArgs = this.extraArgs;
+	private static needCompilation(compileInfo: CompileInfo) {
+		return (
+			compileInfo.extraArgsChanged(this.extraArgs) ||
+			this.fileNewer(compileInfo.srcUri.path, compileInfo.uri.path) ||
+			this.fileNewer(this.getCompileCommandsPath(), compileInfo.uri.path)
+		);
 	}
 
 	private static getCompileInfo(uri: Uri): CompileInfo | undefined {
@@ -309,17 +347,6 @@ export class CompileCommands {
 		) as CompileCommand[];
 	}
 
-	private static getCompileCommandsPath() {
-		const compileCommandsPath =
-			workspace
-				.getConfiguration("compilerexplorer", null)
-				.get<string>("compilationDirectory") + "/compile_commands.json";
-
-		return compileCommandsPath
-			? resolvePath(compileCommandsPath)
-			: resolvePath("${workspaceFolder}/compile_commands.json");
-	}
-
 	private static createOutputDirectory() {
 		if (!fs.existsSync(this.outDir)) {
 			fs.mkdirSync(this.outDir);
@@ -327,7 +354,7 @@ export class CompileCommands {
 	}
 
 	private static getUriForScheme(srcUri: Uri, scheme: string) {
-		const ext = (function() {
+		const ext = (function () {
 			switch (scheme) {
 				case "disassembly":
 					return ".s";

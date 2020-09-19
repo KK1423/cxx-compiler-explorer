@@ -40,7 +40,7 @@ export class AsmDecorator {
 			{
 				isWholeLine: true,
 				backgroundColor: new ThemeColor(
-					"editor.findMatchHighlightBackground"
+					"editor.selectionHighlightBackground"
 				),
 				overviewRulerColor: new ThemeColor(
 					"editorOverviewRuler.findMatchForeground"

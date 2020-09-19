@@ -36,26 +36,27 @@ export class AsmProvider implements TextDocumentContentProvider {
 		this._documents.set(uri.toString(), document);
 
 		// Watch for src file and reload it on change
-		this.addWatcherForSrcURI(uri);
+		this.addWatcherForURI(CompileCommands.getSrcUri(uri)!, uri);
+		this.addWatcherForURI(Uri.file(CompileCommands.getCompileCommandsPath()), uri);
 
 		return document;
 	}
 
-	private addWatcherForSrcURI(uri: Uri) {
+	private addWatcherForURI(uri: Uri, asm: Uri) {
 		const watcher = workspace.createFileSystemWatcher(
-			CompileCommands.getSrcUri(uri)!.path
+			uri!.path
 		);
 
 		watcher.onDidChange(fileUri =>
-			this.reloadAsmDocument(CompileCommands.getAsmUri(fileUri)!)
+			this.reloadAsmDocument(asm)
 		);
 		watcher.onDidCreate(fileUri =>
-			this.reloadAsmDocument(CompileCommands.getAsmUri(fileUri)!)
+			this.reloadAsmDocument(asm)
 		);
 		watcher.onDidDelete(fileUri =>
-			this.reloadAsmDocument(CompileCommands.getAsmUri(fileUri)!)
+			this.reloadAsmDocument(asm)
 		);
-		this._watchers.set(uri.toString(), watcher);
+		this._watchers.set(asm.toString(), watcher);
 		this._onDidArgChange.on(asmUri => this.reloadAsmDocument(asmUri));
 	}
 
