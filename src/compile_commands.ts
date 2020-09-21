@@ -1,6 +1,6 @@
 "use strict";
 
-import { window, workspace, Uri, OutputChannel } from "vscode";
+import { workspace, Uri, OutputChannel } from "vscode";
 import * as fs from "fs";
 import * as Path from "path";
 import { resolvePath, arrayEquals } from "./utils";
@@ -288,16 +288,8 @@ export class CompileCommands {
 					? result.output.join("\n")
 					: "";
 
-			window.showErrorMessage(
-				"Cannot compile " + compileInfo.srcUri.path
-			);
-
-			this.errorChannel.appendLine(error);
-			this.errorChannel.appendLine("  failed with error code " +
-				(result.status ? result.status.toString() : "null")
-			);
-
-			return false;
+			return error + "  failed with error code " +
+				(result.status?.toString() || "null");
 		}
 
 		compileInfo.extraArgs = this.extraArgs;

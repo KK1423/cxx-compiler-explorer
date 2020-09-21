@@ -7,12 +7,14 @@ import * as fs from "fs";
 
 export class AsmDocument {
 	lines: AsmLine[] = [];
+	compileResult: string | boolean;
 	sourceToAsmMapping = new Map<number, number[]>();
 
 	constructor(uri: Uri) {
-		CompileCommands.compile(uri);
-
-		this.lines = this.processAssemblyFile(uri);
+		this.compileResult = CompileCommands.compile(uri);
+		if (this.compileResult === true) {
+			this.lines = this.processAssemblyFile(uri);
+		}
 	}
 
 	private processAssemblyFile(uri: Uri): AsmLine[] {
@@ -32,6 +34,10 @@ export class AsmDocument {
 	}
 
 	get value(): string {
+		if (!this.compileResult || (typeof this.compileResult === "string")) {
+			return this.compileResult as string || "Failed to compile.";
+		}
+
 		let result = "";
 		this.lines.forEach(line => {
 			if (line instanceof BinaryAsmLine) {

@@ -56,7 +56,7 @@ export class AsmProvider implements TextDocumentContentProvider {
 		watcher.onDidDelete(fileUri =>
 			this.reloadAsmDocument(asm)
 		);
-		this._watchers.set(asm.toString(), watcher);
+		this._watchers.set(uri.toString() + asm.toString(), watcher);
 		this._onDidArgChange.on(asmUri => this.reloadAsmDocument(asmUri));
 	}
 
