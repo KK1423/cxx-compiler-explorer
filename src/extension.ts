@@ -5,7 +5,7 @@ import {
 	window,
 	commands,
 	ExtensionContext,
-	TextEditor
+	TextEditor, ViewColumn
 } from "vscode";
 import { AsmProvider } from "./provider";
 import { AsmDecorator } from "./decorator";
@@ -30,12 +30,19 @@ export function activate(context: ExtensionContext) {
 	}
 
 	function openAsmDocumentForEditor(srcEditor: TextEditor) {
+		if (!["cpp", "c"].includes(srcEditor.document.languageId)) {
+			window.showErrorMessage("Not a C/C++ file.");
+			return;
+		}
+
 		let asmUri = CompileCommands.getAsmUri(srcEditor.document.uri);
+		let targetCol = srcEditor.viewColumn;
+		targetCol = [ViewColumn.One, ViewColumn.Two, ViewColumn.Three, ViewColumn.One][targetCol!];
 
 		if (asmUri) {
 			workspace.openTextDocument(asmUri).then(doc => {
 				window
-					.showTextDocument(doc, srcEditor.viewColumn! + 1, true)
+					.showTextDocument(doc, targetCol, true)
 					.then(asmEditor => {
 						const decorator = new AsmDecorator(
 							srcEditor,
@@ -54,7 +61,7 @@ export function activate(context: ExtensionContext) {
 		} else {
 			window.showErrorMessage(
 				srcEditor.document.uri +
-					" is not found in compile_commands.json"
+				" is not found in compile_commands.json"
 			);
 		}
 	}
